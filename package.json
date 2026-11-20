@@ -15,6 +15,6 @@
   "scripts": {
     "start": "node src/main.mjs",
     "test": "node --test \"test/*.test.mjs\"",
-    "check": "node --check src/server.mjs && node --check src/main.mjs && node --check public/app.js"
+    "check": "node --check src/server.mjs && node --check src/images.mjs && node --check src/main.mjs && node --check public/app.js"
   }
 }

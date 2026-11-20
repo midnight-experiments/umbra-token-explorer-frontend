@@ -5,6 +5,7 @@ import { createServer, request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { createImageRoute } from "./images.mjs";
 
 /** The networks the page offers, in the order of its buttons. */
 export const NETWORKS = ["mainnet", "preview", "preprod"];
@@ -22,15 +23,15 @@ const PUBLIC = new URL("../public/", import.meta.url);
 const PASSED = ["content-type", "x-umbra-height", "x-umbra-hash", "x-umbra-view"];
 
 /**
- * The page's own script and style only. Token images come from any https host the publisher chose: the page fetches
- * them to check their SHA-256 (connect-src) and shows them from a blob: URL, or directly when no hash is published.
+ * The page's own script and style only. A token image with a published SHA-256 comes through this server
+ * (./images.mjs), checked, and is shown from a blob: URL; one without is shown directly from its https host.
  */
 const CSP = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
   "img-src 'self' https: blob:",
-  "connect-src 'self' https:",
+  "connect-src 'self'",
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'none'",
@@ -123,6 +124,18 @@ export async function createExplorerServer(config, { log = console } = {}) {
     upstream.end();
   }
 
+  // One token's answer from the indexer, for the image route: the token, or null.
+  async function readToken(network, search) {
+    const res = await fetch(`${config.apis[network]}/token-metadata-api/v1/tokens${search}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(config.upstreamTimeoutMs),
+    });
+    if (!res.ok) throw new Error(`${network} API answered HTTP ${res.status}`);
+    return (await res.json()).items?.[0] ?? null;
+  }
+  const image = createImageRoute({ readToken, log });
+  const send = { error: sendError, json: sendJson, securityHeaders: SECURITY_HEADERS };
+
   function handle(req, res) {
     let url;
     try { url = new URL(req.url ?? "/", "http://local"); } catch { return sendError(res, 400, "bad-request", "not a valid request path"); }
@@ -143,10 +156,11 @@ export async function createExplorerServer(config, { log = console } = {}) {
       res.writeHead(200, { ...SECURITY_HEADERS, "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
       return res.end(publicConfig);
     }
-    const match = /^\/api\/([a-z]+)\/tokens$/.exec(url.pathname);
+    const match = /^\/api\/([a-z]+)\/(tokens|image)$/.exec(url.pathname);
     // Own keys only: a path naming `constructor` or `toString` is not a network.
     if (match && Object.hasOwn(config.apis, match[1])) {
       if (!config.apis[match[1]]) return sendError(res, 503, "no-api", `no ${match[1]} indexer is configured on this server`);
+      if (match[2] === "image") return image(res, match[1], url.search, send);
       return forward(req, res, match[1], url.search);
     }
     return sendError(res, 404, "not-found", "not found");

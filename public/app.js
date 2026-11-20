@@ -90,8 +90,9 @@ function showImage(avatar, src, onError) {
 }
 
 /**
- * The image is the client's to check: fetch it (https only), hash it, and show it only when the hash matches. The
- * visitor's browser fetches it from the publisher's host, never through this site.
+ * An image with a published SHA-256 comes through this site's server, which fetches it from the publisher's host
+ * (most send no CORS headers, so this page could not read it) and serves it only when it matches. The page checks the
+ * hash again and shows it only when it matches. An image with no usable hash is shown directly, marked unverified.
  */
 async function checkImage(common, avatar, line, token) {
   const uri = common.image;
@@ -109,8 +110,20 @@ async function checkImage(common, avatar, line, token) {
   }
   say("plain", "fetching…");
   try {
-    const res = await fetch(url, { mode: "cors", credentials: "omit", referrerPolicy: "no-referrer" });
-    if (!res.ok) return say("bad", `fetch failed: HTTP ${res.status}`);
+    const which = new URLSearchParams({ contract: token.contractAddress, domainSep: token.domainSep, kind: String(token.kind) });
+    const res = await fetch(`api/${network}/image?${which}`);
+    if (!res.ok) {
+      const error = (await res.json().catch(() => null))?.error;
+      if (error?.code === "hash-mismatch") {
+        say("bad", "SHA-256 differs: not shown");
+        line.append(el("br"), el("span", { class: "mono muted hash" }, `file      ${short(error.digest)}`),
+          el("br"), el("span", { class: "mono muted hash" }, `published ${short(common.imageSha256)}`));
+        return;
+      }
+      say("bad", "could not fetch: not shown");
+      line.title = error?.message ?? `HTTP ${res.status}`;
+      return;
+    }
     const bytes = await res.arrayBuffer();
     const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
     if (`0x${digest}` !== common.imageSha256) {
