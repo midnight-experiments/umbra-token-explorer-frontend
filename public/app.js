@@ -1,8 +1,10 @@
 "use strict";
 const KIND = { 1: ["Shielded", "k1"], 2: ["Unshielded", "k2"], 3: ["Contract token", "k3"] };
 const COLUMNS = 6;
+const NETWORKS = ["mainnet", "preview", "preprod"];
 /** The block explorer of each network. */
 const explorer = () => (network === "mainnet" ? "https://midnightexplorer.com" : `https://${network}.midnightexplorer.com`);
+/** The network shown; set at start from the link (`?network=`) or the server's default. */
 let network = "preprod";
 
 /** Builds an element; strings become text nodes, never HTML. */
@@ -20,42 +22,37 @@ function el(tag, attrs = {}, ...children) {
 const short = (hex) => (hex ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : "");
 const group3 = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const kindTag = (kind) => el("span", { class: `tag ${KIND[kind][1]}` }, KIND[kind][0]);
-const copy = (text) => el("button", { class: "copy", type: "button", onclick: (e) => { e.stopPropagation(); navigator.clipboard?.writeText(text); } }, "copy");
+/** A small "copy" button after a value; the click copies it and does not toggle the row. */
+function copy(text) {
+  const b = el("button", { class: "copy", type: "button" }, "copy");
+  b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    b.textContent = (await copyText(text)) ? "copied" : "copy failed";
+    setTimeout(() => { b.textContent = "copy"; }, 1200);
+  });
+  return b;
+}
 
 /* ---------- API ---------- */
 
+/** Thrown in place of an answer that arrived after a newer load started; that load shows its own. */
+class Superseded extends Error {}
+/** Counts loads; an answer belongs to the newest load only. */
+let loadId = 0;
+
 /**
- * One GET of the route through the local forwarder, the selector as query parameters (a list of colors as one
- * comma-separated value); gives the answer and shows the block it was read at.
+ * One GET of the route through this site's forwarder, the selector as query parameters (a list of colors as one
+ * comma-separated value); gives the answer and shows the block it was read at. The path is relative, so the site
+ * also works under a path prefix.
  */
-async function getTokens(selector) {
+async function getTokens(selector, id) {
   const query = new URLSearchParams(Object.entries(selector).map(([k, v]) => [k, Array.isArray(v) ? v.join(",") : String(v)]));
-  const res = await fetch(`/api/${network}/tokens?${query}`);
+  const res = await fetch(`api/${network}/tokens?${query}`);
   const json = await res.json().catch(() => ({}));
+  if (id !== loadId) throw new Superseded();
   if (!res.ok) throw new Error(json.error ? `${json.error.code}: ${json.error.message}` : `HTTP ${res.status}`);
   showBlock(res.headers.get("x-umbra-height"), res.headers.get("x-umbra-hash"), res.headers.get("x-umbra-view"));
   return json;
-}
-/** Every described token of a contract, following the route's pages. */
-async function contractTokens(address) {
-  return allPages({ contract: address });
-}
-/** Every described token the API knows (no selector), page by page until `nextCursor` is null. */
-async function everyToken() {
-  return allPages({});
-}
-/** The most tokens one page of the API holds (it refuses a larger limit); the default page holds 20. */
-const PAGE_LIMIT = 100;
-/** Every page of one selector, the largest page each time, until `nextCursor` is null. */
-async function allPages(selector) {
-  const items = [];
-  let cursor;
-  do {
-    const page = await getTokens({ ...selector, limit: PAGE_LIMIT, ...(cursor ? { cursor } : {}) });
-    items.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor);
-  return items;
 }
 let highest = -1n;
 function showBlock(height, hash, view) {
@@ -84,7 +81,6 @@ function lastUpdate(t) {
   return t.fields.reduce((m, f) => (BigInt(f.updatedAt.height) > m ? BigInt(f.updatedAt.height) : m), 0n);
 }
 
-/** The image is the client's to check: fetch it (https only), hash it, and show it only when the hash matches. */
 /** Puts an image in a row's image cell; the table shows its image column once any image has loaded. */
 function showImage(avatar, src, onError) {
   const img = el("img", { src, alt: "", referrerpolicy: "no-referrer" });
@@ -93,6 +89,10 @@ function showImage(avatar, src, onError) {
   avatar.replaceChildren(img);
 }
 
+/**
+ * The image is the client's to check: fetch it (https only), hash it, and show it only when the hash matches. The
+ * visitor's browser fetches it from the publisher's host, never through this site.
+ */
 async function checkImage(common, avatar, line, token) {
   const uri = common.image;
   if (!uri) return;
@@ -149,8 +149,8 @@ function groupNote(t) {
       return el("li", {}, kindTag(m.kind), sameDomain ? null : el("span", { class: "mono" }, d ?? short(m.domainSep)),
         null);
     })),
-    g.memberCount > g.members.length ? el("p", { class: "foot" }, `${g.members.length} of ${g.memberCount} listed.`) : null,
-    el("p", { class: "foot" }, "Grouping is for display only: each token keeps its own fields, and being grouped does not prove they are interchangeable. A group never spans contracts, so another contract cannot join it by copying the symbol. UmbraDB compares the symbol's first 12 characters, byte for byte."),
+    g.memberCount > g.members.length ? el("p", { class: "popnote" }, `${g.members.length} of ${g.memberCount} listed.`) : null,
+    el("p", { class: "popnote" }, "Grouping is for display only: each token keeps its own fields, and being grouped does not prove they are interchangeable. A group never spans contracts, so another contract cannot join it by copying the symbol. UmbraDB compares the symbol's first 12 characters, byte for byte."),
   ];
 }
 function openPop(button, t) {
@@ -242,7 +242,8 @@ function memberDetail(t, imageLine) {
 /** Copies text: the Clipboard API, else a hidden text area and the copy command. */
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
-  const area = el("textarea", { readonly: "", style: "position:fixed;opacity:0;top:0;left:0" });
+  // A class, not a style attribute: the site's Content-Security-Policy refuses inline styles.
+  const area = el("textarea", { readonly: "", class: "offscreen" });
   area.value = text;
   document.body.append(area);
   area.select();
@@ -367,6 +368,8 @@ function pager() {
 
 /** The tokens the current filter selects: a page of them when the API pages that selector. */
 async function loadKnown() {
+  // A newer load (another network, page or filter) makes the answers of this one stale: they are dropped.
+  const id = ++loadId;
   highest = -1n;
   closePop();
   const box = document.getElementById("known");
@@ -376,15 +379,16 @@ async function loadKnown() {
     let items;
     if (pageable()) {
       const cursor = paging.cursors[paging.index];
-      const page = await getTokens({ ...filter, limit: paging.size, ...(cursor ? { cursor } : {}) });
+      const page = await getTokens({ ...filter, limit: paging.size, ...(cursor ? { cursor } : {}) }, id);
       paging.next = page.nextCursor;
       items = page.items;
     } else {
-      items = (await getTokens(filter)).items;
+      items = (await getTokens(filter, id)).items;
     }
     const rows = groupsOf(items).flatMap(groupRows);
     box.replaceChildren(tokenTable(rows.length ? rows : [messageRow(empty)]), pageable() ? pager() : "");
   } catch (error) {
+    if (error instanceof Superseded || id !== loadId) return;
     document.getElementById("status").textContent = "";
     box.replaceChildren(tokenTable(messageRow(error.message, "error")), pageable() ? pager() : "");
   }
@@ -482,15 +486,43 @@ $("f-clear").addEventListener("click", () => {
   if (wasFiltered) loadKnown();
 });
 
-document.querySelectorAll("header .seg button").forEach((b) => b.addEventListener("click", () => {
-  network = b.dataset.net;
-  document.querySelectorAll("header .seg button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+/* ---------- Network ---------- */
+
+const netButtons = document.querySelectorAll("header .seg button");
+/** Shows a network: its button pressed, the link naming it (so it can be shared), its tokens loaded. */
+function selectNetwork(next) {
+  network = next;
+  netButtons.forEach((o) => o.setAttribute("aria-pressed", String(o.dataset.net === next)));
+  const link = new URL(location.href);
+  link.searchParams.set("network", next);
+  history.replaceState(null, "", link);
   document.getElementById("status").textContent = "connecting…";
   clearFilter();
   showSearch(false);
   loadKnown();
-}));
+}
+netButtons.forEach((b) => b.addEventListener("click", () => selectNetwork(b.dataset.net)));
+
+/**
+ * The networks this server has an indexer for (`api/config`): the others' buttons are disabled. Without an answer
+ * every button stays usable and a network with no indexer says so when chosen.
+ */
+async function start() {
+  let config = null;
+  try {
+    const res = await fetch("api/config");
+    if (res.ok) config = await res.json();
+  } catch {}
+  const available = (n) => !config || config.networks?.[n] === true;
+  netButtons.forEach((b) => {
+    b.disabled = !available(b.dataset.net);
+    b.title = b.disabled ? "No indexer for this network on this server" : "";
+  });
+  const asked = new URLSearchParams(location.search).get("network");
+  const fallback = config?.defaultNetwork ?? NETWORKS.find(available) ?? "preprod";
+  selectNetwork(NETWORKS.includes(asked) && available(asked) ? asked : fallback);
+}
 
 const footer = document.getElementById("footer");
 new ResizeObserver(() => { document.body.style.paddingBottom = `${footer.offsetHeight}px`; }).observe(footer);
-loadKnown();
+start();

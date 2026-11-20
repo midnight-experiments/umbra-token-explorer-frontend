@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Midnight Network Token Metadata</title>
+<meta name="description" content="The tokens Midnight contracts describe with MIP-0018 metadata, as an UmbraDB indexer reports them.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 <script src="app.js" defer></script>
 </head>
@@ -12,9 +15,9 @@
   <div class="bar">
     <h1>Midnight Network Token Metadata</h1>
     <div class="seg" role="group" aria-label="Network">
-      <button data-net="mainnet" aria-pressed="false">Mainnet</button>
-      <button data-net="preview" aria-pressed="false">Preview</button>
-      <button data-net="preprod" aria-pressed="true">Preprod</button>
+      <button type="button" data-net="mainnet" aria-pressed="false">Mainnet</button>
+      <button type="button" data-net="preview" aria-pressed="false">Preview</button>
+      <button type="button" data-net="preprod" aria-pressed="true">Preprod</button>
     </div>
     <span class="status" id="status">connecting…</span>
     <button class="btn" type="button" id="open-search" aria-controls="filter" aria-expanded="false">Search</button>
