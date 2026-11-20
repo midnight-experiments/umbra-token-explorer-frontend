@@ -1,0 +1,20 @@
+{
+  "name": "umbra-token-explorer-frontend",
+  "version": "0.1.0",
+  "description": "A web page listing the tokens Midnight contracts describe with MIP-0018 metadata, read from an UmbraDB token-metadata API.",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midnight-experiments/umbra-token-explorer-frontend.git"
+  },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "node --check src/server.mjs && node --check src/main.mjs && node --check public/app.js"
+  }
+}

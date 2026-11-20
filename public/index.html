@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Midnight Network Token Metadata</title>
+<meta name="description" content="The tokens Midnight contracts describe with MIP-0018 metadata, as an UmbraDB indexer reports them.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Midnight Network Token Metadata</h1>
+    <div class="seg" role="group" aria-label="Network">
+      <button type="button" data-net="mainnet" aria-pressed="false">Mainnet</button>
+      <button type="button" data-net="preview" aria-pressed="false">Preview</button>
+      <button type="button" data-net="preprod" aria-pressed="true">Preprod</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+    <button class="btn" type="button" id="open-search" aria-controls="filter" aria-expanded="false">Search</button>
+  </div>
+</header>
+<main>
+  <form id="filter" class="filter" autocomplete="off" hidden>
+    <div class="seg" role="group" aria-label="Filter by">
+      <button type="button" data-mode="contract" aria-pressed="true">Contract</button>
+      <button type="button" data-mode="colors" aria-pressed="false">Colors</button>
+    </div>
+    <div class="fgroup" data-for="contract">
+      <input id="f-contract" placeholder="Contract address, 0x… (64 hex digits)" spellcheck="false" aria-label="Contract address">
+      <input id="f-domain" placeholder="Domain separator: text or 0x… (optional)" spellcheck="false" aria-label="Domain separator">
+      <select id="f-kind" aria-label="Kind" disabled>
+        <option value="">Any kind</option>
+        <option value="1">Shielded</option>
+        <option value="2">Unshielded</option>
+        <option value="3">Contract token</option>
+      </select>
+    </div>
+    <div class="fgroup" data-for="colors" hidden>
+      <input id="f-colors" placeholder="Colors, 0x… each, separated by commas or spaces (up to 100)" spellcheck="false" aria-label="Colors">
+    </div>
+    <div class="factions">
+      <button class="btn primary">Search</button>
+      <button class="btn" type="button" id="f-clear">Clear</button>
+    </div>
+  </form>
+  <div id="known"></div>
+</main>
+<footer id="footer">
+  <div class="foot">
+    <section>
+      <h2>Run your own token indexer</h2>
+      <p><a href="https://github.com/midnightntwrk/umbradb" target="_blank" rel="noopener noreferrer">UmbraDB on GitHub</a></p>
+    </section>
+    <section>
+      <h2>Add metadata to your token</h2>
+      <p><a href="https://github.com/midnightntwrk/midnight-improvement-proposals/blob/main/mips/mip-0018-on-chain-token-metadata.md" target="_blank" rel="noopener noreferrer">MIP-0018 standard</a>
+        · <a href="https://github.com/midnight-experiments/mip-0018" target="_blank" rel="noopener noreferrer">Examples and tools</a></p>
+    </section>
+  </div>
+</footer>
+<div id="pop" role="tooltip"></div>
+</body>
+</html>

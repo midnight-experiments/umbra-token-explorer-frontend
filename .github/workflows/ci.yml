@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm run check
+      - run: npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the image
+        run: docker build -t umbra-token-explorer-frontend .
+      - name: Start it and check that it serves the page
+        run: |
+          docker run -d --name explorer -p 10591:10591 umbra-token-explorer-frontend
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:10591/healthz && break; sleep 1; done
+          curl -fsS http://127.0.0.1:10591/ | grep -q '<script src="app.js" defer></script>'
+          curl -fsS http://127.0.0.1:10591/api/config
+      - if: always()
+        run: docker logs explorer || true

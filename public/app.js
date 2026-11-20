@@ -1,270 +1,10 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Midnight Network Token Metadata</title>
-<style>
-  :root {
-    --bg: #ffffff; --panel: #f4f5f7; --text: #1e2228; --muted: #6b7280; --line: #e5e7eb; --hover: #f9fafb;
-    --accent: #2563eb;
-    --t-symbol: #1f2937; --t-shielded: #7c3aed; --t-unshielded: #0284c7; --t-contract: #16a34a;
-    --t-group: #ea580c; --t-ok-bg: #dcfce7; --t-ok: #166534; --t-bad-bg: #fee2e2; --t-bad: #991b1b;
-    --t-warn-bg: #ffedd5; --t-warn: #9a3412; --t-plain-bg: #eef0f3; --t-plain: #374151;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121418; --panel: #1b1e24; --text: #e6e8eb; --muted: #9aa0aa; --line: #2a2e36; --hover: #1a1d23;
-      --accent: #60a5fa; --t-symbol: #e5e7eb;
-      --t-ok-bg: #14532d; --t-ok: #bbf7d0; --t-bad-bg: #7f1d1d; --t-bad: #fecaca;
-      --t-warn-bg: #7c2d12; --t-warn: #fed7aa; --t-plain-bg: #2a2e36; --t-plain: #d1d5db;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .mono { font: 12px ui-monospace, Menlo, monospace; }
-  .muted { color: var(--muted); }
-
-  /* Header */
-  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
-  .bar { max-width: 1200px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
-  h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-  .seg button { border: 0; background: var(--bg); color: var(--muted); padding: 5px 14px; font: inherit; font-size: 13px; cursor: pointer; }
-  .seg button + button { border-left: 1px solid var(--line); }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-  .status { color: var(--muted); font-size: 12.5px; }
-  .status b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-  input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font: 12.5px ui-monospace, Menlo, monospace; }
-  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .btn { border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-  main { width: 100%; max-width: 1200px; margin: 0 auto; padding: 14px 16px 24px; }
-  /* Pinned to the bottom of the window; the page keeps that much room at its end (set from the footer's height) */
-  footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
-  .foot { max-width: 1200px; margin: 0 auto; padding: 8px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
-  .foot section + section { border-left: 1px solid var(--line); padding-left: 24px; }
-  .foot h2 { font-size: 12.5px; font-weight: 650; margin: 0 0 1px; }
-  .foot p { margin: 0; color: var(--muted); font-size: 12.5px; }
-  .foot a { color: var(--accent); text-decoration: none; }
-  .foot a:hover { text-decoration: underline; }
-  @media (max-width: 480px) {
-    .foot { gap: 0 12px; padding: 6px 12px; }
-    .foot section + section { padding-left: 12px; }
-    .foot h2, .foot p { font-size: 11.5px; }
-  }
-  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 860px; }
-  .filter[hidden] { display: none; }
-  #open-search { margin-left: auto; }
-  .filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
-  .filter .fgroup { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 480px; min-width: 0; }
-  .filter .fgroup[hidden] { display: none; }
-  .filter #f-contract { flex: 3 1 260px; }
-  .filter #f-domain { flex: 2 1 200px; }
-  .filter #f-colors { flex: 1 1 100%; }
-  .filter select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
-  .filter select:disabled { opacity: 0.5; }
-  .factions { display: flex; gap: 6px; }
-  .filter .ferror { flex: 1 1 100%; color: var(--t-bad); font-size: 12.5px; }
-
-  /* Tags */
-  .tag { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11.5px; font-weight: 600; line-height: 18px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; color: #fff; }
-  .tag.symbol { background: var(--t-symbol); color: var(--bg); }
-  .tag.k1 { background: var(--t-shielded); }
-  .tag.k2 { background: var(--t-unshielded); }
-  .tag.k3 { background: var(--t-contract); }
-  .tag.group { background: var(--t-group); }
-  .tag.ok { background: var(--t-ok-bg); color: var(--t-ok); }
-  .tag.bad { background: var(--t-bad-bg); color: var(--t-bad); }
-  .tag.warn { background: var(--t-warn-bg); color: var(--t-warn); }
-  .tag.plain { background: var(--t-plain-bg); color: var(--t-plain); font-weight: 500; }
-
-  /* Table */
-  table.tokens { width: 100%; border-collapse: collapse; border: 1px solid var(--line); margin-bottom: 18px; }
-  .tokens > thead > tr > th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); white-space: nowrap; }
-  .tokens > tbody > tr > td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-  h3.section { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
-  tr.token { cursor: pointer; }
-  tr.token:hover td { background: var(--hover); }
-  tr.token[aria-expanded="true"] td { background: var(--hover); border-bottom-color: transparent; }
-  .chev { width: 28px; padding-right: 0 !important; }
-  .chev span { display: inline-block; width: 18px; text-align: center; color: var(--muted); transition: transform 0.15s; }
-  tr.token[aria-expanded="true"] .chev span { transform: rotate(90deg); }
-  .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .avatar { flex: none; width: 28px; height: 28px; border-radius: 0; overflow: hidden; align-self: center; }
-  .avatar img { display: block; }
-  table.noimg .avatar { display: none; }
-  .avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .who { flex-wrap: wrap; gap: 6px 8px; }
-  .hash { white-space: pre; }
-  .who .name { font-weight: 600; display: block; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .small { font-size: 12px; }
-  .tokens a { color: var(--accent); text-decoration: none; }
-  .tokens a:hover { text-decoration: underline; }
-  td.c-contract, td.c-updated, .fields a { white-space: nowrap; }
-  .member { padding: 10px 0 12px; }
-  .member + .member { border-top: 1px dashed var(--line); }
-  .memberhead { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .membername { font-weight: 600; }
-  .who .name.none { font-weight: 400; font-style: italic; color: var(--muted); }
-  .who .sub { display: block; color: var(--muted); font: 11.5px ui-monospace, Menlo, monospace; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .groupcell { white-space: nowrap; }
-  .help { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: 4px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); background: none; font: 600 11px system-ui, sans-serif; cursor: help; vertical-align: middle; padding: 0; }
-  .help:hover, .help:focus-visible, .help[aria-expanded="true"] { border-color: var(--t-group); color: var(--bg); background: var(--t-group); outline: none; }
-
-  /* Expanded row */
-  tr.detail > td { padding: 4px 10px 16px 38px; background: var(--hover); }
-  .detailgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; align-items: start; }
-  .detailgrid h3 { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 6px; }
-  dl { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 12.5px; align-content: start; }
-  dt { color: var(--muted); }
-  dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-  dd .mono { word-break: break-all; }
-  dd .tag { white-space: normal; }
-  table.tokens { table-layout: auto; max-width: 100%; }
-  table.fields { width: 100%; border-collapse: collapse; font-size: 12.5px; border: 1px solid var(--line); background: var(--bg); }
-  .fields th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  .fields td { background: var(--bg); padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
-  .fields .f-key { white-space: nowrap; width: 104px; }
-  .fields .f-fit { white-space: nowrap; width: 1%; }
-  .fields td.f-fit:last-child, .fields th.f-fit:last-child { text-align: right; }
-  /* Main table: columns that fit their content, and the name takes the rest */
-  .tokens .c-kind, .tokens .c-color, .tokens .c-contract, .tokens .c-updated { white-space: nowrap; }
-  .colorcell { display: inline-flex; align-items: center; gap: 6px; }
-  .colorchip { border: 0; background: none; padding: 0; color: var(--text); cursor: copy; font: 12px ui-monospace, Menlo, monospace; }
-  .colorchip:hover { color: var(--accent); }
-  .tokens th.c-updated, .tokens td.c-updated { text-align: right; }
-  .coin { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-  .coin .avatar { margin-right: 4px; }
-  .coin .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: clamp(120px, 24vw, 300px); }
-  .coin .sym { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: clamp(60px, 10vw, 140px); }
-  /* The details fill the row's width but never set it */
-  .detailwrap { width: 0; min-width: 100%; }
-  .memberhead { flex-wrap: wrap; }
-  .coin .name.none { font-weight: 400; font-style: italic; color: var(--muted); }
-  .kindcell { display: inline-flex; align-items: center; gap: 5px; }
-  .kindcell .help { margin-left: 0; }
-  .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: -8px 0 8px; }
-  .pager select { margin-left: 4px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; }
-  .pagenav { display: flex; align-items: center; gap: 8px; }
-  .pageno { font-size: 13px; font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
-  .btn:disabled { opacity: 0.45; cursor: default; }
-  .fields td.dead, .fields span.dead { text-decoration: line-through; color: var(--muted); }
-  .detailstack { display: grid; gap: 10px; }
-  .fields td .tag { white-space: normal; }
-  .fields td .mono { word-break: break-all; }
-  .fields.ident a { white-space: normal; word-break: break-all; }
-  .copy { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 0 0 6px; font: inherit; font-size: 11.5px; }
-  .empty, .error { padding: 10px; color: var(--muted); }
-  .error { color: var(--t-bad); }
-
-  /* Group explanation */
-  #pop { position: fixed; z-index: 10; max-width: 340px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-top: 3px solid var(--t-group); border-radius: 4px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; box-shadow: 0 6px 20px #0002; display: none; }
-  #pop.open { display: block; }
-  #pop h4 { margin: 0 0 4px; font-size: 13px; }
-  #pop p { margin: 0 0 6px; }
-  #pop ul { margin: 4px 0 6px; padding-left: 0; list-style: none; }
-  #pop li { margin: 3px 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  #pop .foot { color: var(--muted); font-size: 11.5px; margin: 0; }
-
-  /* Narrow screens: keep the essentials */
-  @media (max-width: 760px) {
-    .detailgrid { grid-template-columns: 1fr; }
-    tr.detail > td { padding-left: 10px; }
-  }
-  @media (max-width: 560px) {
-    /* The table becomes a list: line 1 the token and its kind; line 2 color, contract, last update */
-    .tokens > thead { display: none; }
-    .tokens, .tokens > tbody { display: block; }
-    tr.token { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 10px; border-bottom: 1px solid var(--line); }
-    tr.token > td { display: block; padding: 0 !important; border: 0 !important; background: none !important; }
-    tr.token > td.chev { display: none; }
-    tr.token > td.c-token { grid-column: 1; }
-    tr.token > td.c-kind { grid-column: 2; justify-self: end; }
-    tr.token > td.c-color, tr.token > td.c-contract, tr.token > td.c-updated { grid-column: 1 / -1; font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
-    tr.token > td.c-color::before, tr.token > td.c-contract::before, tr.token > td.c-updated::before { content: attr(data-label); width: 64px; flex: none; }
-    tr.token > td.c-updated { text-align: left; }
-    tr.token[aria-expanded="true"] { background: var(--hover); border-bottom: 0; }
-    tr.detail { display: block; border-bottom: 1px solid var(--line); }
-    tr.detail[hidden] { display: none; }
-    tr.detail > td { display: block; }
-    .tokens > tbody > tr:not(.token):not(.detail) { display: block; }
-    .tokens > tbody > tr:not(.token):not(.detail) > td { display: block; }
-    .coin .name { max-width: 170px; }
-    .pager { margin-top: 10px; }
-    .filter .fgroup { flex-basis: 100%; }
-    .filter input, .filter select { flex: 1 1 100% !important; }
-    /* The kind sits at the right edge on phones: the question mark goes first */
-    .kindcell .help { order: -1; }
-    tr.detail > td { padding: 4px 6px 12px; }
-    .fields:not(.ident) th:nth-child(3), .fields:not(.ident) td:nth-child(3) { display: none; }
-    .fields .f-key { width: 78px; white-space: normal; overflow-wrap: anywhere; }
-    .hash { white-space: normal; }
-    .fields th, .fields td { padding: 5px 6px; }
-  }
-</style>
-</head>
-<body>
-<header>
-  <div class="bar">
-    <h1>Midnight Network Token Metadata</h1>
-    <div class="seg" role="group" aria-label="Network">
-      <button data-net="mainnet" aria-pressed="false">Mainnet</button>
-      <button data-net="preview" aria-pressed="false">Preview</button>
-      <button data-net="preprod" aria-pressed="true">Preprod</button>
-    </div>
-    <span class="status" id="status">connecting…</span>
-    <button class="btn" type="button" id="open-search" aria-controls="filter" aria-expanded="false">Search</button>
-  </div>
-</header>
-<main>
-  <form id="filter" class="filter" autocomplete="off" hidden>
-    <div class="seg" role="group" aria-label="Filter by">
-      <button type="button" data-mode="contract" aria-pressed="true">Contract</button>
-      <button type="button" data-mode="colors" aria-pressed="false">Colors</button>
-    </div>
-    <div class="fgroup" data-for="contract">
-      <input id="f-contract" placeholder="Contract address, 0x… (64 hex digits)" spellcheck="false" aria-label="Contract address">
-      <input id="f-domain" placeholder="Domain separator: text or 0x… (optional)" spellcheck="false" aria-label="Domain separator">
-      <select id="f-kind" aria-label="Kind" disabled>
-        <option value="">Any kind</option>
-        <option value="1">Shielded</option>
-        <option value="2">Unshielded</option>
-        <option value="3">Contract token</option>
-      </select>
-    </div>
-    <div class="fgroup" data-for="colors" hidden>
-      <input id="f-colors" placeholder="Colors, 0x… each, separated by commas or spaces (up to 100)" spellcheck="false" aria-label="Colors">
-    </div>
-    <div class="factions">
-      <button class="btn primary">Search</button>
-      <button class="btn" type="button" id="f-clear">Clear</button>
-    </div>
-  </form>
-  <div id="known"></div>
-</main>
-<footer id="footer">
-  <div class="foot">
-    <section>
-      <h2>Run your own token indexer</h2>
-      <p><a href="https://github.com/midnightntwrk/umbradb" target="_blank" rel="noopener noreferrer">UmbraDB on GitHub</a></p>
-    </section>
-    <section>
-      <h2>Add metadata to your token</h2>
-      <p><a href="https://github.com/midnightntwrk/midnight-improvement-proposals/blob/main/mips/mip-0018-on-chain-token-metadata.md" target="_blank" rel="noopener noreferrer">MIP-0018 standard</a>
-        · <a href="https://github.com/midnight-experiments/mip-0018" target="_blank" rel="noopener noreferrer">Examples and tools</a></p>
-    </section>
-  </div>
-</footer>
-<div id="pop" role="tooltip"></div>
-<script>
 "use strict";
 const KIND = { 1: ["Shielded", "k1"], 2: ["Unshielded", "k2"], 3: ["Contract token", "k3"] };
 const COLUMNS = 6;
+const NETWORKS = ["mainnet", "preview", "preprod"];
 /** The block explorer of each network. */
 const explorer = () => (network === "mainnet" ? "https://midnightexplorer.com" : `https://${network}.midnightexplorer.com`);
+/** The network shown; set at start from the link (`?network=`) or the server's default. */
 let network = "preprod";
 
 /** Builds an element; strings become text nodes, never HTML. */
@@ -282,42 +22,37 @@ function el(tag, attrs = {}, ...children) {
 const short = (hex) => (hex ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : "");
 const group3 = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const kindTag = (kind) => el("span", { class: `tag ${KIND[kind][1]}` }, KIND[kind][0]);
-const copy = (text) => el("button", { class: "copy", type: "button", onclick: (e) => { e.stopPropagation(); navigator.clipboard?.writeText(text); } }, "copy");
+/** A small "copy" button after a value; the click copies it and does not toggle the row. */
+function copy(text) {
+  const b = el("button", { class: "copy", type: "button" }, "copy");
+  b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    b.textContent = (await copyText(text)) ? "copied" : "copy failed";
+    setTimeout(() => { b.textContent = "copy"; }, 1200);
+  });
+  return b;
+}
 
 /* ---------- API ---------- */
 
+/** Thrown in place of an answer that arrived after a newer load started; that load shows its own. */
+class Superseded extends Error {}
+/** Counts loads; an answer belongs to the newest load only. */
+let loadId = 0;
+
 /**
- * One GET of the route through the local forwarder, the selector as query parameters (a list of colors as one
- * comma-separated value); gives the answer and shows the block it was read at.
+ * One GET of the route through this site's forwarder, the selector as query parameters (a list of colors as one
+ * comma-separated value); gives the answer and shows the block it was read at. The path is relative, so the site
+ * also works under a path prefix.
  */
-async function getTokens(selector) {
+async function getTokens(selector, id) {
   const query = new URLSearchParams(Object.entries(selector).map(([k, v]) => [k, Array.isArray(v) ? v.join(",") : String(v)]));
-  const res = await fetch(`/api/${network}/tokens?${query}`);
+  const res = await fetch(`api/${network}/tokens?${query}`);
   const json = await res.json().catch(() => ({}));
+  if (id !== loadId) throw new Superseded();
   if (!res.ok) throw new Error(json.error ? `${json.error.code}: ${json.error.message}` : `HTTP ${res.status}`);
   showBlock(res.headers.get("x-umbra-height"), res.headers.get("x-umbra-hash"), res.headers.get("x-umbra-view"));
   return json;
-}
-/** Every described token of a contract, following the route's pages. */
-async function contractTokens(address) {
-  return allPages({ contract: address });
-}
-/** Every described token the API knows (no selector), page by page until `nextCursor` is null. */
-async function everyToken() {
-  return allPages({});
-}
-/** The most tokens one page of the API holds (it refuses a larger limit); the default page holds 20. */
-const PAGE_LIMIT = 100;
-/** Every page of one selector, the largest page each time, until `nextCursor` is null. */
-async function allPages(selector) {
-  const items = [];
-  let cursor;
-  do {
-    const page = await getTokens({ ...selector, limit: PAGE_LIMIT, ...(cursor ? { cursor } : {}) });
-    items.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor);
-  return items;
 }
 let highest = -1n;
 function showBlock(height, hash, view) {
@@ -346,7 +81,6 @@ function lastUpdate(t) {
   return t.fields.reduce((m, f) => (BigInt(f.updatedAt.height) > m ? BigInt(f.updatedAt.height) : m), 0n);
 }
 
-/** The image is the client's to check: fetch it (https only), hash it, and show it only when the hash matches. */
 /** Puts an image in a row's image cell; the table shows its image column once any image has loaded. */
 function showImage(avatar, src, onError) {
   const img = el("img", { src, alt: "", referrerpolicy: "no-referrer" });
@@ -355,6 +89,10 @@ function showImage(avatar, src, onError) {
   avatar.replaceChildren(img);
 }
 
+/**
+ * The image is the client's to check: fetch it (https only), hash it, and show it only when the hash matches. The
+ * visitor's browser fetches it from the publisher's host, never through this site.
+ */
 async function checkImage(common, avatar, line, token) {
   const uri = common.image;
   if (!uri) return;
@@ -411,8 +149,8 @@ function groupNote(t) {
       return el("li", {}, kindTag(m.kind), sameDomain ? null : el("span", { class: "mono" }, d ?? short(m.domainSep)),
         null);
     })),
-    g.memberCount > g.members.length ? el("p", { class: "foot" }, `${g.members.length} of ${g.memberCount} listed.`) : null,
-    el("p", { class: "foot" }, "Grouping is for display only: each token keeps its own fields, and being grouped does not prove they are interchangeable. A group never spans contracts, so another contract cannot join it by copying the symbol. UmbraDB compares the symbol's first 12 characters, byte for byte."),
+    g.memberCount > g.members.length ? el("p", { class: "popnote" }, `${g.members.length} of ${g.memberCount} listed.`) : null,
+    el("p", { class: "popnote" }, "Grouping is for display only: each token keeps its own fields, and being grouped does not prove they are interchangeable. A group never spans contracts, so another contract cannot join it by copying the symbol. UmbraDB compares the symbol's first 12 characters, byte for byte."),
   ];
 }
 function openPop(button, t) {
@@ -504,7 +242,8 @@ function memberDetail(t, imageLine) {
 /** Copies text: the Clipboard API, else a hidden text area and the copy command. */
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
-  const area = el("textarea", { readonly: "", style: "position:fixed;opacity:0;top:0;left:0" });
+  // A class, not a style attribute: the site's Content-Security-Policy refuses inline styles.
+  const area = el("textarea", { readonly: "", class: "offscreen" });
   area.value = text;
   document.body.append(area);
   area.select();
@@ -629,6 +368,8 @@ function pager() {
 
 /** The tokens the current filter selects: a page of them when the API pages that selector. */
 async function loadKnown() {
+  // A newer load (another network, page or filter) makes the answers of this one stale: they are dropped.
+  const id = ++loadId;
   highest = -1n;
   closePop();
   const box = document.getElementById("known");
@@ -638,15 +379,16 @@ async function loadKnown() {
     let items;
     if (pageable()) {
       const cursor = paging.cursors[paging.index];
-      const page = await getTokens({ ...filter, limit: paging.size, ...(cursor ? { cursor } : {}) });
+      const page = await getTokens({ ...filter, limit: paging.size, ...(cursor ? { cursor } : {}) }, id);
       paging.next = page.nextCursor;
       items = page.items;
     } else {
-      items = (await getTokens(filter)).items;
+      items = (await getTokens(filter, id)).items;
     }
     const rows = groupsOf(items).flatMap(groupRows);
     box.replaceChildren(tokenTable(rows.length ? rows : [messageRow(empty)]), pageable() ? pager() : "");
   } catch (error) {
+    if (error instanceof Superseded || id !== loadId) return;
     document.getElementById("status").textContent = "";
     box.replaceChildren(tokenTable(messageRow(error.message, "error")), pageable() ? pager() : "");
   }
@@ -744,18 +486,43 @@ $("f-clear").addEventListener("click", () => {
   if (wasFiltered) loadKnown();
 });
 
-document.querySelectorAll("header .seg button").forEach((b) => b.addEventListener("click", () => {
-  network = b.dataset.net;
-  document.querySelectorAll("header .seg button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+/* ---------- Network ---------- */
+
+const netButtons = document.querySelectorAll("header .seg button");
+/** Shows a network: its button pressed, the link naming it (so it can be shared), its tokens loaded. */
+function selectNetwork(next) {
+  network = next;
+  netButtons.forEach((o) => o.setAttribute("aria-pressed", String(o.dataset.net === next)));
+  const link = new URL(location.href);
+  link.searchParams.set("network", next);
+  history.replaceState(null, "", link);
   document.getElementById("status").textContent = "connecting…";
   clearFilter();
   showSearch(false);
   loadKnown();
-}));
+}
+netButtons.forEach((b) => b.addEventListener("click", () => selectNetwork(b.dataset.net)));
+
+/**
+ * The networks this server has an indexer for (`api/config`): the others' buttons are disabled. Without an answer
+ * every button stays usable and a network with no indexer says so when chosen.
+ */
+async function start() {
+  let config = null;
+  try {
+    const res = await fetch("api/config");
+    if (res.ok) config = await res.json();
+  } catch {}
+  const available = (n) => !config || config.networks?.[n] === true;
+  netButtons.forEach((b) => {
+    b.disabled = !available(b.dataset.net);
+    b.title = b.disabled ? "No indexer for this network on this server" : "";
+  });
+  const asked = new URLSearchParams(location.search).get("network");
+  const fallback = config?.defaultNetwork ?? NETWORKS.find(available) ?? "preprod";
+  selectNetwork(NETWORKS.includes(asked) && available(asked) ? asked : fallback);
+}
 
 const footer = document.getElementById("footer");
 new ResizeObserver(() => { document.body.style.paddingBottom = `${footer.offsetHeight}px`; }).observe(footer);
-loadKnown();
-</script>
-</body>
-</html>
+start();
